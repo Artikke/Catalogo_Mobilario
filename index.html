@@ -693,6 +693,7 @@ const ITEMS = [
 ];
 
 let cart = {};
+let lastCartEntries = [];
 let currentFilter = 'all';
 
 function renderCards() {
@@ -837,7 +838,7 @@ function closeModal() {
 function buildMessage() {
   const name = document.getElementById('requesterName').value.trim() || '(Nombre)';
   const area = document.getElementById('requesterArea').value.trim();
-  const entries = Object.entries(cart).filter(([,q]) => q > 0);
+  const entries = Object.entries(cart).length > 0 ? Object.entries(cart).filter(([,q]) => q > 0) : lastCartEntries || [];
 
   let msg = `Hola Jorge, me gustaria solicitar el siguiente mobiliario:\n\n`;
   let total = 0;
@@ -863,16 +864,62 @@ function updatePreview() {
 document.getElementById('requesterName').addEventListener('input', updatePreview);
 document.getElementById('requesterArea').addEventListener('input', updatePreview);
 
+const NAME_TO_SHEET = {
+  'ej-alta-crom': 'Silla ejecutiva - Respaldo alto (cromada)',
+  'malla-brazos': 'Silla de malla - Con descansabrazos',
+  'secre-sin': 'Silla secretarial - Sin descansabrazos',
+  'ofi-med-crom': 'Silla de oficina - Respaldo medio (cromada)',
+  'ej-ribet': 'Silla ejecutiva - Ribeteado premium',
+  'ej-acol': 'Silla ejecutiva - Acolchonada',
+  'ofi-piel': 'Silla de oficina - Piel con brazos',
+  'malla-acol': 'Silla de malla - Asiento acolchonado',
+  'malla-compact': 'Silla de malla - Compacta',
+  'visit-amarilla': 'Silla de visita - Amarilla',
+  'visit-blanca': 'Silla de visita - Blanca',
+  'mesa-cuad': 'Mesa cuadrada - Uso multiple',
+  'mesa-red': 'Mesa redonda de juntas',
+  'escr-madera': 'Escritorio individual - Madera',
+  'escr-vidrio': 'Escritorio con vidrio y cajones',
+  'mesa-gris': 'Mesa de trabajo - Gris'
+};
 function sendTeams() {
-  const msg = buildMessage();
-  const encoded = encodeURIComponent(msg);
-  const teamsUrl = `https://teams.microsoft.com/l/chat/0/0?users=janaya@grupoproesa.mx&message=${encoded}`;
-  navigator.clipboard.writeText(msg).then(() => {
-    showToast('Mensaje copiado - abriendo Teams...');
-    setTimeout(() => { window.open(teamsUrl, '_blank'); }, 500);
+  const name = document.getElementById('requesterName').value.trim();
+  if (!name) { showToast('Escribe tu nombre primero'); return; }
+  const area = document.getElementById('requesterArea').value.trim();
+  const entries = Object.entries(cart).filter(([,q]) => q > 0);
+  const items = entries.map(([id, qty]) => {
+    const item = ITEMS.find(i => i.id === id);
+    return { name: NAME_TO_SHEET[id] || item.name, qty: qty, price: item.price };
+  });
+
+  lastCartEntries = Object.entries(cart).filter(([,q]) => q > 0);
+  showToast('Registrando pedido...');
+
+  // Send to Google Sheet
+  fetch('https://script.google.com/macros/s/AKfycbwbKGWN6h0NmnB1b-jg2sLXfjlkcINtTjWcSO2GzOE6rUuiFcMerNILCH_j5YHFb9mC/exec', {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ buyer: name.toUpperCase(), area: area, items: items })
+  }).then(() => {
+    // Update local stock immediately
+    entries.forEach(([id, qty]) => {
+      const item = ITEMS.find(i => i.id === id);
+      item.stock = Math.max(0, item.stock - qty);
+    });
+    cart = {};
+    renderCards();
+    closeModal();
+    showToast('Pedido registrado - abriendo Teams...');
+
+    // Open Teams with message
+    const msg = buildMessage();
+    const encoded = encodeURIComponent(msg);
+    const teamsUrl = 'https://teams.microsoft.com/l/chat/0/0?users=janaya@grupoproesa.mx&message=' + encoded;
+    navigator.clipboard.writeText(msg).catch(() => {});
+    setTimeout(() => { window.open(teamsUrl, '_blank'); }, 800);
   }).catch(() => {
-    window.open(teamsUrl, '_blank');
-    showToast('Abriendo Teams...');
+    showToast('Error al registrar, intenta de nuevo');
   });
 }
 
