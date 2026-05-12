@@ -896,23 +896,11 @@ function sendTeams() {
   lastCartEntries = Object.entries(cart).filter(([,q]) => q > 0);
   showToast('Registrando pedido...');
 
-  // Send to Google Sheet via form (works with Apps Script)
-  const iframe = document.createElement('iframe');
-  iframe.name = 'sheet_submit';
-  iframe.style.display = 'none';
-  document.body.appendChild(iframe);
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = 'https://script.google.com/macros/s/AKfycbwbKGWN6h0NmnB1b-jg2sLXfjlkcINtTjWcSO2GzOE6rUuiFcMerNILCH_j5YHFb9mC/exec';
-  form.target = 'sheet_submit';
-  const input = document.createElement('input');
-  input.type = 'hidden';
-  input.name = 'payload';
-  input.value = JSON.stringify({ buyer: name.toUpperCase(), area: area, items: items });
-  form.appendChild(input);
-  document.body.appendChild(form);
-  form.submit();
-  setTimeout(() => { document.body.removeChild(form); document.body.removeChild(iframe); }, 5000);
+  // Send to Google Sheet via GET (no CORS issues)
+  const payload = encodeURIComponent(JSON.stringify({ buyer: name.toUpperCase(), area: area, items: items }));
+  const sheetUrl = '=' + payload;
+  const win = window.open(sheetUrl, '_blank', 'width=1,height=1,left=-100,top=-100');
+  setTimeout(() => { try { win.close(); } catch(e) {} }, 6000);
   // Continue with Teams
   (function() {
     // Update local stock immediately
