@@ -898,7 +898,7 @@ function sendTeams() {
 
   // Send to Google Sheet via hidden iframe GET
   const payload = encodeURIComponent(JSON.stringify({ buyer: name.toUpperCase(), area: area, items: items }));
-  const sheetUrl = '=' + payload;
+  const sheetUrl = 'https://script.google.com/macros/s/AKfycbwbKGWN6h0NmnB1b-jg2sLXfjlkcINtTjWcSO2GzOE6rUuiFcMerNILCH_j5YHFb9mC/exec?payload=' + payload;
   const iframe = document.createElement('iframe');
   iframe.style.display = 'none';
   iframe.src = sheetUrl;
