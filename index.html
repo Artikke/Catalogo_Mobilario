@@ -947,55 +947,56 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-// Fetch stock from Google Sheets
-async function loadStockFromSheet() {
+// Fetch stock from Google Sheets via JSONP (no CORS issues)
+const NAME_MAP_REVERSE = {
+  'Silla ejecutiva - Respaldo alto (cromada)': 'ej-alta-crom',
+  'Silla de malla - Con descansabrazos': 'malla-brazos',
+  'Silla secretarial - Sin descansabrazos': 'secre-sin',
+  'Silla de oficina - Respaldo medio (cromada)': 'ofi-med-crom',
+  'Silla ejecutiva - Ribeteado premium': 'ej-ribet',
+  'Silla ejecutiva - Acolchonada': 'ej-acol',
+  'Silla de oficina - Piel con brazos': 'ofi-piel',
+  'Silla de malla - Asiento acolchonado': 'malla-acol',
+  'Silla de malla - Compacta': 'malla-compact',
+  'Silla de visita - Amarilla': 'visit-amarilla',
+  'Silla de visita - Blanca': 'visit-blanca',
+  'Mesa cuadrada - Uso multiple': 'mesa-cuad',
+  'Mesa redonda de juntas': 'mesa-red',
+  'Escritorio individual - Madera': 'escr-madera',
+  'Escritorio con vidrio y cajones': 'escr-vidrio',
+  'Mesa de trabajo - Gris': 'mesa-gris'
+};
+
+function sheetCallback(response) {
   try {
-    const url = 'https://docs.google.com/spreadsheets/d/153bE0IaUt543quEeugFh0zkrWEcqZfngNxRH2dRlc1Y/export?format=csv';
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error('No se pudo cargar');
-    const csv = await resp.text();
-    const rows = csv.split('\n').slice(1);
+    const rows = response.table.rows;
     rows.forEach(row => {
-      const cols = row.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
-      if (!cols || cols.length < 4) return;
-      const name = cols[0].replace(/"/g,'').trim();
-      const stockTotal = parseInt(cols[1]) || 0;
-      const apartado = parseInt(cols[2]) || 0;
-      const precio = parseInt(cols[3]) || 0;
+      const name = row.c[0] ? row.c[0].v : '';
+      const stockTotal = row.c[1] ? Number(row.c[1].v) : 0;
+      const apartado = row.c[2] ? Number(row.c[2].v) : 0;
+      const precio = row.c[3] ? Number(row.c[3].v) : 0;
       const available = Math.max(0, stockTotal - apartado);
-      const NAME_MAP = {
-        'Silla ejecutiva - Respaldo alto (cromada)': 'ej-alta-crom',
-        'Silla de malla - Con descansabrazos': 'malla-brazos',
-        'Silla secretarial - Sin descansabrazos': 'secre-sin',
-        'Silla de oficina - Respaldo medio (cromada)': 'ofi-med-crom',
-        'Silla ejecutiva - Ribeteado premium': 'ej-ribet',
-        'Silla ejecutiva - Acolchonada': 'ej-acol',
-        'Silla de oficina - Piel con brazos': 'ofi-piel',
-        'Silla de malla - Asiento acolchonado': 'malla-acol',
-        'Silla de malla - Compacta': 'malla-compact',
-        'Silla de visita - Amarilla': 'visit-amarilla',
-        'Silla de visita - Blanca': 'visit-blanca',
-        'Mesa cuadrada - Uso multiple': 'mesa-cuad',
-        'Mesa redonda de juntas': 'mesa-red',
-        'Escritorio individual - Madera': 'escr-madera',
-        'Escritorio con vidrio y cajones': 'escr-vidrio',
-        'Mesa de trabajo - Gris': 'mesa-gris'
-      };
-      const itemId = NAME_MAP[name];
-      const item = itemId ? ITEMS.find(i => i.id === itemId) : null;
-      if (item) {
-        item.stock = available;
-        item.price = precio;
+      const itemId = NAME_MAP_REVERSE[name];
+      if (itemId) {
+        const item = ITEMS.find(i => i.id === itemId);
+        if (item) {
+          item.stock = available;
+          item.price = precio;
+        }
       }
     });
     console.log('Stock actualizado desde Google Sheets');
   } catch(e) {
-    console.warn('Usando stock local:', e.message);
+    console.warn('Error leyendo Sheet:', e);
   }
   renderCards();
   updateStats();
 }
-loadStockFromSheet();
+
+// Load via script tag (JSONP - no CORS)
+const sheetScript = document.createElement('script');
+sheetScript.src = 'https://docs.google.com/spreadsheets/d/153bE0IaUt543quEeugFh0zkrWEcqZfngNxRH2dRlc1Y/gviz/tq?tqx=responseHandler:sheetCallback';
+document.body.appendChild(sheetScript);
 </script>
 
 </body>
