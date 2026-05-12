@@ -764,9 +764,12 @@ function changeQty(id, delta) {
 
 function updateStats() {
   let totalAvail = 0;
+  let totalAll = 0;
   ITEMS.forEach(item => {
     totalAvail += item.stock - (cart[item.id] || 0);
+    totalAll += item.stock;
   });
+  document.getElementById('statTotal').textContent = totalAll;
   document.getElementById('statAvail').textContent = totalAvail;
   const el = document.getElementById('statAvail');
   el.className = 'number' + (totalAvail < 50 ? ' warn' : '');
@@ -895,7 +898,55 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-renderCards();
+// Fetch stock from Google Sheets
+async function loadStockFromSheet() {
+  try {
+    const url = 'https://docs.google.com/spreadsheets/d/153bE0IaUt543quEeugFh0zkrWEcqZfngNxRH2dRlc1Y/export?format=csv';
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('No se pudo cargar');
+    const csv = await resp.text();
+    const rows = csv.split('\n').slice(1);
+    rows.forEach(row => {
+      const cols = row.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
+      if (!cols || cols.length < 4) return;
+      const name = cols[0].replace(/"/g,'').trim();
+      const stockTotal = parseInt(cols[1]) || 0;
+      const apartado = parseInt(cols[2]) || 0;
+      const precio = parseInt(cols[3]) || 0;
+      const available = Math.max(0, stockTotal - apartado);
+      const NAME_MAP = {
+        'Silla ejecutiva - Respaldo alto (cromada)': 'ej-alta-crom',
+        'Silla de malla - Con descansabrazos': 'malla-brazos',
+        'Silla secretarial - Sin descansabrazos': 'secre-sin',
+        'Silla de oficina - Respaldo medio (cromada)': 'ofi-med-crom',
+        'Silla ejecutiva - Ribeteado premium': 'ej-ribet',
+        'Silla ejecutiva - Acolchonada': 'ej-acol',
+        'Silla de oficina - Piel con brazos': 'ofi-piel',
+        'Silla de malla - Asiento acolchonado': 'malla-acol',
+        'Silla de malla - Compacta': 'malla-compact',
+        'Silla de visita - Amarilla': 'visit-amarilla',
+        'Silla de visita - Blanca': 'visit-blanca',
+        'Mesa cuadrada - Uso multiple': 'mesa-cuad',
+        'Mesa redonda de juntas': 'mesa-red',
+        'Escritorio individual - Madera': 'escr-madera',
+        'Escritorio con vidrio y cajones': 'escr-vidrio',
+        'Mesa de trabajo - Gris': 'mesa-gris'
+      };
+      const itemId = NAME_MAP[name];
+      const item = itemId ? ITEMS.find(i => i.id === itemId) : null;
+      if (item) {
+        item.stock = available;
+        item.price = precio;
+      }
+    });
+    console.log('Stock actualizado desde Google Sheets');
+  } catch(e) {
+    console.warn('Usando stock local:', e.message);
+  }
+  renderCards();
+  updateStats();
+}
+loadStockFromSheet();
 </script>
 
 </body>
