@@ -896,11 +896,14 @@ function sendTeams() {
   lastCartEntries = Object.entries(cart).filter(([,q]) => q > 0);
   showToast('Registrando pedido...');
 
-  // Send to Google Sheet via GET (no CORS issues)
+  // Send to Google Sheet via hidden iframe GET
   const payload = encodeURIComponent(JSON.stringify({ buyer: name.toUpperCase(), area: area, items: items }));
   const sheetUrl = '=' + payload;
-  const win = window.open(sheetUrl, '_blank', 'width=1,height=1,left=-100,top=-100');
-  setTimeout(() => { try { win.close(); } catch(e) {} }, 6000);
+  const iframe = document.createElement('iframe');
+  iframe.style.display = 'none';
+  iframe.src = sheetUrl;
+  document.body.appendChild(iframe);
+  setTimeout(() => { try { document.body.removeChild(iframe); } catch(e) {} }, 8000);
   // Continue with Teams
   (function() {
     // Update local stock immediately
