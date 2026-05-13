@@ -894,9 +894,15 @@ function sendTeams() {
   });
 
   lastCartEntries = Object.entries(cart).filter(([,q]) => q > 0);
-  showToast('Registrando pedido...');
 
-  // Send to Google Sheet via hidden iframe GET
+  // Open Teams FIRST (must be in direct click context to avoid popup blocker)
+  const msg = buildMessage();
+  const encoded = encodeURIComponent(msg);
+  const teamsUrl = 'https://teams.microsoft.com/l/chat/0/0?users=janaya@grupoproesa.mx&message=' + encoded;
+  navigator.clipboard.writeText(msg).catch(() => {});
+  window.open(teamsUrl, '_blank');
+
+  // Send to Google Sheet via hidden iframe GET (background)
   const payload = encodeURIComponent(JSON.stringify({ buyer: name.toUpperCase(), area: area, items: items }));
   const sheetUrl = 'https://script.google.com/macros/s/AKfycbwbKGWN6h0NmnB1b-jg2sLXfjlkcINtTjWcSO2GzOE6rUuiFcMerNILCH_j5YHFb9mC/exec?payload=' + payload;
   const iframe = document.createElement('iframe');
@@ -904,25 +910,16 @@ function sendTeams() {
   iframe.src = sheetUrl;
   document.body.appendChild(iframe);
   setTimeout(() => { try { document.body.removeChild(iframe); } catch(e) {} }, 8000);
-  // Continue with Teams
-  (function() {
-    // Update local stock immediately
-    entries.forEach(([id, qty]) => {
-      const item = ITEMS.find(i => i.id === id);
-      item.stock = Math.max(0, item.stock - qty);
-    });
-    cart = {};
-    renderCards();
-    closeModal();
-    showToast('Pedido registrado - abriendo Teams...');
 
-    // Open Teams with message
-    const msg = buildMessage();
-    const encoded = encodeURIComponent(msg);
-    const teamsUrl = 'https://teams.microsoft.com/l/chat/0/0?users=janaya@grupoproesa.mx&message=' + encoded;
-    navigator.clipboard.writeText(msg).catch(() => {});
-    setTimeout(() => { window.open(teamsUrl, '_blank'); }, 800);
-  })();
+  // Update local stock
+  entries.forEach(([id, qty]) => {
+    const item = ITEMS.find(i => i.id === id);
+    item.stock = Math.max(0, item.stock - qty);
+  });
+  cart = {};
+  renderCards();
+  closeModal();
+  showToast('Pedido registrado');
 }
 
 function copyMessage() {
